@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Focus — a calmer todo list</title>
+  <meta name="description" content="A calm, offline-friendly todo list. Add tasks, set priorities and due dates, and get things done." />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#2f6b57" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%232f6b57'/%3E%3Cpath d='M18 33l9 9 19-20' fill='none' stroke='%23f6fbf8' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css?v=3" />
+  <script>
+    // Apply the saved theme before first paint to avoid a flash.
+    try {
+      var saved = JSON.parse(localStorage.getItem('focus.todo.v1') || 'null');
+      var theme = saved && (saved.theme === 'dark' || saved.theme === 'light') ? saved.theme : null;
+      if (!theme) {
+        theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.documentElement.dataset.theme = theme;
+    } catch (error) {
+      document.documentElement.dataset.theme = 'light';
+    }
+  </script>
+</head>
+<body>
+  <div class="scene" aria-hidden="true">
+    <div class="scene__blob scene__blob--a"></div>
+    <div class="scene__blob scene__blob--b"></div>
+    <div class="scene__grain"></div>
+  </div>
+
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand__mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M5 12.5l4.6 4.6L19 7.5"/></svg>
+        </span>
+        <span class="brand__name">Focus</span>
+      </div>
+      <div class="topbar__actions">
+        <button class="icon-btn sync-btn" id="syncBtn" type="button" aria-label="Sync settings" title="Sync settings">
+          <svg class="icon-cloud" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18h9.5a3.5 3.5 0 0 0 .4-7 5.5 5.5 0 0 0-10.6 1.4A3.3 3.3 0 0 0 7 18Z"/></svg>
+          <span class="sync-dot" id="syncDot" aria-hidden="true"></span>
+        </button>
+        <button class="icon-btn" id="themeToggle" type="button" aria-label="Toggle theme">
+          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5 8.6 8.6 0 1 0 20.5 14.6Z"/></svg>
+          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="hero__copy">
+        <p class="eyebrow" id="greeting">Good morning</p>
+        <h1 class="hero__title">Make room for<br /><em>what matters.</em></h1>
+        <p class="hero__date" id="dateLine">Today</p>
+      </div>
+      <div class="ring" id="ring" role="img" aria-label="0 percent complete">
+        <div class="ring__inner">
+          <span class="ring__value" id="ringValue">0%</span>
+          <span class="ring__label">done</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="composer-wrap" aria-label="Add a task">
+      <form class="composer" id="addForm" novalidate>
+        <label class="sr-only" for="newTask">New task</label>
+        <input
+          class="composer__input"
+          id="newTask"
+          type="text"
+          name="task"
+          placeholder="Add a task — press Enter"
+          maxlength="200"
+          autocomplete="off"
+          enterkeyhint="done"
+        />
+        <div class="composer__tools">
+          <button class="chip-btn" id="priorityBtn" type="button" aria-expanded="false" aria-controls="priorityPopover" title="Set priority">
+            <span class="dot" id="priorityDot" data-level="0" aria-hidden="true"></span>
+            <span id="priorityLabel">Priority</span>
+          </button>
+          <button class="chip-btn" id="dueBtn" type="button" aria-expanded="false" aria-controls="duePopover" title="Set due date">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="16" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
+            <span id="dueLabel">Date</span>
+          </button>
+        </div>
+        <button class="add-btn" type="submit" aria-label="Add task">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </form>
+
+      <div class="popover" id="priorityPopover" hidden>
+        <p class="popover__title" id="priorityPopoverLabel">Priority</p>
+        <div class="popover__list" role="group" aria-labelledby="priorityPopoverLabel">
+          <button class="priority-option" type="button" data-level="0" aria-pressed="true">
+            <span class="dot" data-level="0" aria-hidden="true"></span><span>None</span>
+          </button>
+          <button class="priority-option" type="button" data-level="1" aria-pressed="false">
+            <span class="dot" data-level="1" aria-hidden="true"></span><span>Low</span>
+          </button>
+          <button class="priority-option" type="button" data-level="2" aria-pressed="false">
+            <span class="dot" data-level="2" aria-hidden="true"></span><span>Medium</span>
+          </button>
+          <button class="priority-option" type="button" data-level="3" aria-pressed="false">
+            <span class="dot" data-level="3" aria-hidden="true"></span><span>High</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="popover" id="duePopover" hidden>
+        <p class="popover__title" id="duePopoverLabel">Due date</p>
+        <div class="popover__list" role="group" aria-labelledby="duePopoverLabel">
+          <button class="due-option" type="button" data-days="0">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+            <span>Today</span>
+          </button>
+          <button class="due-option" type="button" data-days="1">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16M8 3v4M16 3v4"/><rect x="4" y="5" width="16" height="16" rx="3"/></svg>
+            <span>Tomorrow</span>
+          </button>
+          <button class="due-option" type="button" data-days="7">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="4"/></svg>
+            <span>In a week</span>
+          </button>
+          <button class="due-option" type="button" data-days="none">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            <span>No date</span>
+          </button>
+        </div>
+        <label class="popover__field">
+          <span>Pick a day</span>
+          <input type="date" id="dueInput" />
+        </label>
+      </div>
+    </section>
+
+    <div class="toolbar">
+      <div class="segmented" id="filters" role="group" aria-label="Filter tasks">
+        <button class="segmented__btn" type="button" data-filter="all" aria-pressed="true">
+          All <span class="segmented__count" data-count="all">0</span>
+        </button>
+        <button class="segmented__btn" type="button" data-filter="active" aria-pressed="false">
+          Active <span class="segmented__count" data-count="active">0</span>
+        </button>
+        <button class="segmented__btn" type="button" data-filter="done" aria-pressed="false">
+          Done <span class="segmented__count" data-count="done">0</span>
+        </button>
+      </div>
+      <button class="ghost-btn" id="clearDone" type="button" disabled>Clear done</button>
+    </div>
+
+    <ul class="list" id="list" aria-label="Tasks"></ul>
+
+    <div class="empty" id="empty" hidden>
+      <svg class="empty__art" viewBox="0 0 120 120" fill="none" aria-hidden="true">
+        <circle cx="60" cy="62" r="44" stroke="currentColor" stroke-opacity=".18" stroke-dasharray="3 8" stroke-linecap="round"/>
+        <path d="M60 92V58" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M61 65c1-15 12-25 28-25 0 16-12 26-28 26Z" fill="currentColor" fill-opacity=".12" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
+        <path d="M59 75c-1-11-9-18-21-18 0 12 9 19 21 19Z" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
+        <circle cx="94" cy="34" r="2.2" fill="currentColor" fill-opacity=".55"/>
+        <circle cx="24" cy="48" r="1.7" fill="currentColor" fill-opacity=".4"/>
+        <circle cx="88" cy="86" r="1.5" fill="currentColor" fill-opacity=".35"/>
+      </svg>
+      <h2 class="empty__title" id="emptyTitle">A blank slate.</h2>
+      <p class="empty__text" id="emptyText">Add your first task above — even the smallest one counts.</p>
+    </div>
+
+    <footer class="footer">
+      <span id="itemsLeft">Nothing here yet</span>
+      <span class="footer__hint"><kbd>/</kbd> to add a task</span>
+    </footer>
+
+    <dialog class="sync-dialog" id="syncDialog" aria-labelledby="syncTitle">
+      <div class="sync-dialog__head">
+        <div>
+          <p class="eyebrow">Cloud sync</p>
+          <h2 class="sync-dialog__title" id="syncTitle">Your tasks, everywhere.</h2>
+        </div>
+        <button class="icon-btn icon-btn--sm" id="syncClose" type="button" aria-label="Close sync settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="sync-dialog__body">
+        <section id="syncSetup" hidden>
+          <p class="sync-dialog__text">Cloud sync is not configured yet. It needs a free Supabase project.</p>
+          <ol class="sync-steps">
+            <li>Create a free project at supabase.com.</li>
+            <li>Run the SQL in <code>supabase/schema.sql</code>.</li>
+            <li>Paste the Project URL and anon key below, then save.</li>
+          </ol>
+          <label class="sync-field"><span>Project URL</span><input id="syncUrlInput" type="url" placeholder="https://xxxx.supabase.co" autocomplete="off" /></label>
+          <label class="sync-field"><span>Anon key</span><input id="syncKeyInput" type="text" placeholder="eyJ..." autocomplete="off" /></label>
+          <div class="sync-actions">
+            <button class="btn-primary" id="syncSaveConfig" type="button">Save and reload</button>
+            <button class="ghost-btn" id="syncResetConfig" type="button" hidden>Reset saved settings</button>
+          </div>
+          <p class="sync-help" id="syncConfigMsg"></p>
+        </section>
+        <section id="syncSignIn" hidden>
+          <p class="sync-dialog__text">Sign in with your email. We’ll send a magic link that signs you in on every device.</p>
+          <label class="sync-field"><span>Email</span><input id="syncEmailInput" type="email" placeholder="you@example.com" autocomplete="email" /></label>
+          <div class="sync-actions">
+            <button class="btn-primary" id="syncSendLink" type="button">Send magic link</button>
+          </div>
+          <p class="sync-help" id="syncAuthMsg"></p>
+        </section>
+        <section id="syncAccount" hidden>
+          <p class="sync-dialog__text" id="syncAccountText"></p>
+          <p class="sync-dialog__meta" id="syncStatusText"></p>
+          <div class="sync-actions">
+            <button class="btn-primary" id="syncNowBtn" type="button">Sync now</button>
+            <button class="ghost-btn" id="syncSignOutBtn" type="button">Sign out</button>
+          </div>
+          <p class="sync-help" id="syncAccountMsg"></p>
+        </section>
+        <section id="syncLoading" hidden>
+          <p class="sync-dialog__text">Loading sync…</p>
+        </section>
+      </div>
+    </dialog>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden>
+    <span class="toast__text" id="toastText">Task deleted</span>
+    <button class="toast__undo" id="toastUndo" type="button">Undo</button>
+    <span class="toast__timer" id="toastTimer" aria-hidden="true"></span>
+  </div>
+
+  <div class="confetti" id="confetti" aria-hidden="true"></div>
+
+  <script src="config.js?v=3" defer></script>
+  <script src="app.js?v=3" defer></script>
+  <script src="sync.js?v=3" defer></script>
+</body>
+</html>
