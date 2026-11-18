@@ -4,6 +4,8 @@ A beautiful, offline-friendly task manager built with plain HTML, CSS, and JavaS
 Tasks are stored locally in your browser, work offline, and can optionally sync across
 devices using a free Supabase project. No build step, no backend required to get started.
 
+###Live DEMO: https://focus-do.netlify.app/
+
 ## Features
 
 - Add, edit (double-click), complete, and delete tasks
